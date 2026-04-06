@@ -1,37 +1,65 @@
 <?php
-if (!defined('WPINC')) die ('Direct access is not allowed');
-
 /**
- * Plugin Name:       JetBackup 
+ * Plugin Name:       JetBackup
  * Plugin URI:        https://www.jetbackup.com/jetbackup-for-wordpress
  * Description:       JetBackup is the most complete WordPress site backup and restore plugin. We offer the easiest way to backup, restore or migrate your site. You can backup your files, database or both.
- * Version:           2.0.9.15
+ * Version:           3.1.20.3
  * Author:            JetBackup
  * Author URI:        https://www.jetbackup.com/jetbackup-for-wordpress
- * License:           Commercial Software License
- *  URI:
+ * License:           GPLv2 or later
  */
 
-if (function_exists('activate_backup_guard')) {
-	die('Please deactivate any other JetBackup version before activating this one.');
-}
+if (!defined('WPINC')) die('Direct access is not allowed');
 
-if (!defined('SG_BACKUP_GUARD_VERSION')) {
-	define('SG_BACKUP_GUARD_VERSION', '2.0.9.15');
-}
+if (!defined('__JETBACKUP__')) define('__JETBACKUP__', true);
+if (!defined('JB_ROOT')) define('JB_ROOT', dirname(__FILE__));
+if (!defined('WP_ROOT')) define('WP_ROOT', rtrim(dirname(WP_CONTENT_DIR), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR);
 
-if (!defined('SG_BACKUP_GUARD_MAIN_FILE')) {
-	define('SG_BACKUP_GUARD_MAIN_FILE', __FILE__);
-}
+require_once JB_ROOT . '/src/JetBackup/autoload.php';
 
-if (!defined('SG_FORCE_DB_TABLES_RESET')) {
-	define('SG_FORCE_DB_TABLES_RESET', false);
-}
+// Installation procedures
+register_activation_hook(__FILE__, ['\JetBackup\Wordpress\Installer', 'install']);
+register_uninstall_hook(__FILE__,  ['\JetBackup\Wordpress\Installer', 'uninstall']);
+register_deactivation_hook(__FILE__, ['\JetBackup\Wordpress\Installer', 'deactivate']);
 
-//if this file is called directly, abort.
-if (!defined('WPINC')) {
-	die;
-}
+// Main init
+add_action('init', ['\JetBackup\Wordpress\Init', 'actionInit'], 1);
+add_action('init', ['\JetBackup\Wordpress\Init', 'actionCLI'], 1);
 
-require_once(plugin_dir_path(__FILE__) . 'public/boot.php');
-require_once(plugin_dir_path(__FILE__) . 'BackupGuard.php');
+add_action('upgrader_process_complete', ['\JetBackup\Wordpress\Installer', 'update'], 10, 2);
+add_filter('admin_body_class', ['\JetBackup\Wordpress\Init', 'filterAdminBodyClass']);
+
+add_action('admin_bar_menu', function ($wp_admin_bar) {
+	return \JetBackup\Wordpress\Init::guard(
+		['\JetBackup\Wordpress\UI', 'addTopMenuBarIntegration'],
+		[$wp_admin_bar],
+		null
+	);
+}, 100);
+
+add_filter('plugin_action_links_backup/backup.php', function ($links) {
+	return \JetBackup\Wordpress\Init::guard(
+		['\JetBackup\Wordpress\UI', 'addActionLinks'],
+		[$links],
+		$links
+	);
+});
+
+add_filter('plugin_row_meta', function ($links, $file) {
+	return \JetBackup\Wordpress\Init::guard(
+		['\JetBackup\Wordpress\UI', 'addRowMeta'],
+		[$links, $file],
+		$links
+	);
+}, 10, 2);
+
+add_filter('site_transient_update_plugins', function ($transient) {
+	try {
+		if (!class_exists('\JetBackup\Wordpress\Update')) return $transient;
+		$result = \JetBackup\Wordpress\Update::check($transient);
+		return ($result instanceof stdClass) ? $result : $transient;
+	} catch (\Throwable $e) {
+		error_log('[JetBackup] Update::check failed: ' . $e->getMessage());
+		return $transient;
+	}
+});

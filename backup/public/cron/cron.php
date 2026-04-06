@@ -1,75 +1,42 @@
 <?php
-//ini_set('display_errors', 1);
-//ini_set('display_startup_errors', 1);
-//error_reporting(E_ALL);
+if (function_exists('opcache_get_status')) ini_set('opcache.enable', 0);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
-define ('CRON_SG_ROOT', dirname(__FILE__, 3) );
-define ('CRON_WP_ROOT', dirname(__FILE__, 6) );
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0, post-check=0, pre-check=0');
+header('Pragma: no-cache');
+header('Expires: 0');
 
-require_once (CRON_WP_ROOT . '/wp-load.php');
-
-$db_prefix = $table_prefix ?? null;
-if (!$db_prefix) return;
-
-if (!defined('SG_ENV_DB_PREFIX')) define ('SG_ENV_DB_PREFIX', $db_prefix);
+use JetBackup\Cron\Cron;
+use JetBackup\Factory;
+use JetBackup\Wordpress\Wordpress;
 
 $isWeb =  isset($_SERVER['HTTP_TE']) || isset($_SERVER['HTTP_COOKIE']) || isset($_SERVER['HTTP_ACCEPT']) ?? null;
+$location = ($_SERVER['SCRIPT_FILENAME'] ?? __FILE__);
+// /home/user/public_html/wp-content/plugins/backup/public/cron/cron.php
+
+define ('WP_ROOT', dirname($location, 6));
+
+if (!file_exists(WP_ROOT . DIRECTORY_SEPARATOR . 'wp-load.php')) {
+	die('Error: Cannot locate wp-load.php. Ensure WP_ROOT is correct.');
+}
+
+// Get into WordPress ecosystem
+require_once(WP_ROOT . DIRECTORY_SEPARATOR . 'wp-load.php');
+
+$_active_plugins = is_multisite() ? array_keys(get_site_option('active_sitewide_plugins')) : Wordpress::getOption('active_plugins');
+$_plugin_name = 'backup/backup.php'; // Cannot use DIRECTORY_SEPARATOR, will cause false positives with IIS
+if (!in_array($_plugin_name, $_active_plugins)) die('JetBackup Plugin is inactive');
 
 if ($isWeb) {
-	$key = SGConfig::get('SG_BACKUP_CURRENT_KEY', true);
-	$token = $_GET['token'] ?? null;
-
-	if ($key != $token || !$token) die(1);
+	$key = Factory::getConfig()->getCronToken();
+	$token = filter_input(INPUT_GET, 'token', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+	if (!$key || !$token || $key != $token) die(1);
 }
 
-require_once (CRON_SG_ROOT . '/com/lib/BackupGuard/Core/Cron.php');
-
-$cron = new Cron();
-
-require_once (CRON_SG_ROOT . '/com/config/config.php');
-require_once (CRON_SG_ROOT . '/com/core/backup/SGBackup.php');
-require_once (CRON_SG_ROOT . '/com/core/backup/SGBackupSchedule.php');
-require_once (CRON_SG_ROOT . '/com/lib/BackupGuard/Core/SGBGChunks.php');
-require_once (CRON_SG_ROOT . '/com/lib/BackupGuard/Core/SGBGStateJson.php');
-require_once (CRON_SG_ROOT . '/com/lib/BackupGuard/Core/RemoteCleanup.php');
-require_once (CRON_SG_ROOT . '/com/lib/BackupGuard/Core/Timing.php');
-
-
-$SGBackup = new SGBackup();
-$SGBGChunks = new SGBGChunks();
-$sgSchedule = new SGBackupSchedule();
-$SGBGStateJson = new SGBGStateJson();
-$RemoteCleanup = new RemoteCleanup();
-$Timing = new Timing();
-
-$RemoteCleanup->doCleanup();
-$actions = $SGBackup->getRunningActions();
-$allSchedules = $sgSchedule->getAllSchedules(true);
-
-$now = $Timing->EpochUTC();
-
-if ($actions && count($actions)) $SGBGChunks->run_chunk();
-
-if (!$actions || !count($actions) && $allSchedules && count($allSchedules)) {
-
-
-	$SGBackupSchedule = new SGBackupSchedule();
-	foreach ($allSchedules as $schedule) {
-		$schedule_options = $SGBackupSchedule->getScheduleOptions($schedule['id']);
-		$next_run = $schedule_options['next_run'] ?? $schedule['executionDate'];
-		$next_run = $Timing->printTime(false, true, $next_run, false);
-
-		if ( (int) $now >= (int) $next_run) {
-
-			$schedule_options['next_run'] = $SGBackupSchedule->next_interval($schedule_options);
-			$SGBackupSchedule->UpdateScheduleOptions($schedule['id'], json_encode($schedule_options));
-			$options = $SGBGStateJson->DoJson('json_decode',$schedule['backup_options']);
-			$SGBackup->setIsManual(false);
-			$SGBackup->backup($options);
-
-			return;
-		}
-	}
+try {
+	Cron::main();
+} catch(Exception $e) {
+	die($e->getMessage() . PHP_EOL);
 }
-
-$cron->setCronLastTime(true);
