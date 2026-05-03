@@ -7,7 +7,7 @@ Tags: backup, restore, remote backup
 Requires at least: 6.0
 Tested up to: 6.9.0
 Requires PHP: 7.4
-Stable tag: 3.1.20.3
+Stable tag: 3.1.21.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,8 +94,12 @@ Yes! JetBackup creates an exact snapshot of your website. When restored, it main
 
 == Changelog ==
 
-= 3.1.20.3 =
+= 3.1.21.3 =
+* Fixed S3 multipart upload resume for large files
+* Added support for JetBackup Linux (v5.4+) dedupe engine
+* Fixed a bug where the upload progress indicator could show incorrect percentage when a chunked upload resumes across multiple execution cycles
 
+= 3.1.20.3 =
 * Improved CLI management commands (fixed validation issues, corrected argument handling).
 * Fixed schedule inconsistencies and next-run calculation issues.
 * Improved file handling and cleanup logic in upload processes.

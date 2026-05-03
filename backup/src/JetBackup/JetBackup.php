@@ -10,7 +10,7 @@ class JetBackup {
 	
 	private function __construct() {}
 
-	const VERSION = '3.1.20.3';
+	const VERSION = '3.1.21.3';
 	const DEVELOPMENT = false;
 
 	const DEFAULT_LANGUAGE = 'en_US';

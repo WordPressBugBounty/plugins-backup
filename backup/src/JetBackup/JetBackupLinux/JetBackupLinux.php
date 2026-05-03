@@ -52,8 +52,11 @@ class JetBackupLinux {
 	const BACKUP_STRUCTURE_ARCHIVED     = 2;
 	const BACKUP_STRUCTURE_COMPRESSED   = 4;
 
+    const BACKUP_STRUCTURE_DEDUPLICATION = 8;
 
-	const QUEUE_STATUS_RESTORE_ACCOUNT_CONFIG = 30;
+
+
+    const QUEUE_STATUS_RESTORE_ACCOUNT_CONFIG = 30;
 	const QUEUE_STATUS_RESTORE_ACCOUNT_DOMAINS = 31;
 	const QUEUE_STATUS_RESTORE_ACCOUNT_CERTIFICATES = 32;
 	const QUEUE_STATUS_RESTORE_ACCOUNT_FTP = 33;
@@ -109,7 +112,7 @@ class JetBackupLinux {
 
 	const MINIMUM_VERSION = '5.3.15';
 
-	private function __construct() {}
+    private function __construct() {}
 	
 	public static function isEnabled():bool {
 		return Factory::getSettingsGeneral()->isJBIntegrationEnabled() && self::isInstalled();

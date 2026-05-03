@@ -344,8 +344,10 @@ class ClientManager {
 	 * @return object|mixed
 	 * @throws ClientException
 	 */
-	public function listUploadParts(string $destination, string $upload_id):object {
-		return self::client()->func('get')->args($destination, ['uploadId' => $upload_id])->exec($this);
+	public function listUploadParts(string $destination, string $upload_id, ?int $partNumberMarker=null):object {
+		$params = ['uploadId' => $upload_id];
+		if($partNumberMarker) $params['part-number-marker'] = $partNumberMarker;
+		return self::client()->func('get')->args($destination, $params)->exec($this);
 	}
 
 	/**

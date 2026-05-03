@@ -389,8 +389,8 @@ class Reindex extends Task {
 
 		$this->getLogController()->logDebug("[_handleJBSnapshot] Processing backup " . $backup['_id'] . " (" . count($backup['items']) . " items)");
 
-		if ($backup['backup_structure'] != JetBackupLinux::BACKUP_STRUCTURE_INCREMENTAL) {
-			$this->getLogController()->logError("[_handleJBSnapshot] Backup ID" . $backup['_id'] . " is not incremental, this type is not supported, skipping");
+		if ($backup['backup_structure'] != JetBackupLinux::BACKUP_STRUCTURE_INCREMENTAL && $backup['backup_structure'] != JetBackupLinux::BACKUP_STRUCTURE_DEDUPLICATION) {
+			$this->getLogController()->logError("[_handleJBSnapshot] Backup ID" . $backup['_id'] . " is not incremental or deduplication, this type is not supported, skipping");
 			return;
 		}
 
@@ -415,12 +415,15 @@ class Reindex extends Task {
 			$snapshot = new Snapshot();
 			$snapshot->setNotes($backup['notes']);
 		}
+        $structure = $backup['backup_structure'] == JetBackupLinux::BACKUP_STRUCTURE_INCREMENTAL
+            ? BackupJob::STRUCTURE_INCREMENTAL
+            : $backup['backup_structure'];
 
-		$snapshot->setEngine(Engine::ENGINE_JB);
+        $snapshot->setEngine(Engine::ENGINE_JB);
 		$snapshot->setBackupType(BackupJob::TYPE_ACCOUNT);
 		$snapshot->setUniqueId($backup['_id']);
 		$snapshot->setCreated(strtotime($backup['created']));
-		$snapshot->setStructure(BackupJob::STRUCTURE_INCREMENTAL);
+		$snapshot->setStructure($structure);
 		$snapshot->setName(sprintf(Snapshot::SNAPSHOT_NAME_PATTERN, Util::date('Y-m-d_His', strtotime($backup['created'])), $backup['_id']));
 
 		// Save snapshot early to get ID for items (reduces memory by saving items progressively)

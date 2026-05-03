@@ -45,17 +45,28 @@ class ChunkedUpload implements DestinationChunkedUpload {
 	public function _loadParts() {
 		if(!isset($this->_data->upload_id)) throw new IOException("No upload id was found");
 		if($this->_parts !== null) return;
-		$parts = $this->_client->listUploadParts($this->_destination, $this->_data->upload_id);
 		$this->_parts = [];
-		if(!isset($parts->Body->Part)) return;
-		
-		foreach($parts->Body->Parts as $part_details) {
-			$part = new \stdClass();
-			$part->number = $part_details->PartNumber;
-			$part->etag = trim($part_details->ETag, '"');
-			$part->Size = $part_details->Size;
-			$this->_parts[] = $part;
-		}
+		$partNumberMarker = null;
+
+		do {
+			$parts = $this->_client->listUploadParts($this->_destination, $this->_data->upload_id, $partNumberMarker);
+			if(!isset($parts->Body->Part)) break;
+
+			foreach($parts->Body->Part as $part_details) {
+				$part = new \stdClass();
+				$part->number = (int) $part_details->PartNumber;
+				$part->etag = trim($part_details->ETag, '"');
+				$part->size = (int) $part_details->Size;
+				$this->_parts[] = $part;
+			}
+
+			$isTruncated = isset($parts->Body->IsTruncated) && (string) $parts->Body->IsTruncated === 'true';
+			if($isTruncated && isset($parts->Body->NextPartNumberMarker)) {
+				$partNumberMarker = (int) $parts->Body->NextPartNumberMarker;
+			} else {
+				$isTruncated = false;
+			}
+		} while($isTruncated);
 	}
 	
 	/**

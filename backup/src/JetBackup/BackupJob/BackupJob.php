@@ -87,6 +87,7 @@ class BackupJob extends DBObject {
 	const STRUCTURE_ARCHIVED    = 1;
 	const STRUCTURE_COMPRESSED  = 2;
 	const STRUCTURE_INCREMENTAL  = 3;
+    const STRUCTURE_DEDUPLICATION = 8;
 	
 	const DEFAULT_DATABASE_EXCLUDES = [
 		// Shield security

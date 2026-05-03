@@ -477,6 +477,14 @@ class Destination extends DBObject {
 				$chunkSize = $upload->getChunkSize() ?: $this->getChunkSizeBytes();
 				$this->getLogController()->logDebug("[copyFileToRemote] [CHUNKED] Offset: " . $offset);
 
+				// On resume, previous cycles already counted the offset bytes in progress.
+				// Subtract them so they aren't double-counted when we re-add per chunk.
+				if($offset && $queue_item) {
+					$progress = $queue_item->getProgress();
+					$progress->setCurrentSubItem(max(0, $progress->getCurrentSubItem() - $offset));
+					$queue_item->save();
+				}
+
 				$file = new FileStream($source);
 				if($offset) $file->seek($offset);
 
