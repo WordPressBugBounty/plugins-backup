@@ -45,6 +45,14 @@ class Wordpress {
 		return wp_remote_get($url, $args);
 	}
 
+	public static function registerAbility(string $name, array $args): void {
+		if (function_exists('wp_register_ability')) wp_register_ability($name, $args);
+	}
+
+	public static function registerAbilityCategory(string $name, array $args): void {
+		if (function_exists('wp_register_ability_category')) wp_register_ability_category($name, $args);
+	}
+
 	public static function getCurrentScreen():?\WP_Screen {
 		if (function_exists('get_current_screen')) return get_current_screen();
 		return null;

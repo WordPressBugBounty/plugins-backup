@@ -10,7 +10,7 @@ class JetBackup {
 	
 	private function __construct() {}
 
-	const VERSION = '3.1.21.3';
+	const VERSION = '3.1.22.3';
 	const DEVELOPMENT = false;
 
 	const DEFAULT_LANGUAGE = 'en_US';
@@ -19,7 +19,7 @@ class JetBackup {
 
 	const MINIMUM_PHP_VERSION = '7.4';
 	const MINIMUM_WP_VERSION = '6.0';
-	const TESTED_ON_WP_VERSION = '6.9.0';
+	const TESTED_ON_WP_VERSION = '7.0.0';
 	const PLUGIN_CONFLICTS = [
 		'backup-guard-gold' . self::SEP . 'BackupGuard.php',
 		'backup-guard-platinum' . self::SEP . 'BackupGuard.php',

@@ -1034,6 +1034,12 @@ class Command {
 	 * [--mfa_enabled=<bool>]
 	 * : enable (1) or disable (0) two-factor authentication for additional security.
 	 *
+	 * [--abilities_enabled=<bool>]
+	 * : enable (1) or disable (0) the read-only WordPress Abilities API surface (WordPress 6.9+).
+	 *
+	 * [--mfa_allow_abilities=<bool>]
+	 * : enable (1) or disable (0) Abilities API access while two-factor authentication is enabled.
+	 *
 	 * [--alternate_data_folder=<alternate_data_folder>]
 	 * : specify a custom data directory for storing configuration and backup data.
 	 *
@@ -1043,6 +1049,7 @@ class Command {
 	 * ## EXAMPLES
 	 *
 	 *     wp jetbackup manageSettingsSecurity --mfa_enabled=1 --daily_checksum_check=1 --alternate_data_folder=/custom/path
+	 *     wp jetbackup manageSettingsSecurity --abilities_enabled=1 --mfa_allow_abilities=0
 	 *
 	 * @when after_wp_load
 	 */

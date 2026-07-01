@@ -912,6 +912,10 @@ class Archive {
 		$destination = rtrim($destination, JetBackup::SEP);
 		if (!is_dir($destination)) throw new ArchiveException("Destination directory not exists '$destination'");
 
+		$realDestination = realpath($destination);
+		if ($realDestination === false) throw new ArchiveException("Unable to resolve destination directory '$destination'");
+		$destination = $realDestination;
+
 		// Load progress info if available
 		$info = $this->_getInfo() ?? (object) [
 			'currentFile' => null,
@@ -969,8 +973,7 @@ class Archive {
 				continue;
 			}
 
-            // Replace Windows backslashes with standard forward slashes
-            $filename = Util::normalizePath($filename);
+			$filename = ltrim(Util::resolveRelativePath($filename), JetBackup::SEP);
 			$output = $destination. JetBackup::SEP .$filename;
 
 			if (file_exists($output) && is_readable($output) && DirIteratorFile::safe_filesize($output) == $size) {
@@ -979,6 +982,22 @@ class Archive {
 			}
 
 			$directory = $header->getTypeFlag() == Header::DIRTYPE ? $output : dirname($output);
+			$existingAncestor = $directory;
+
+			while ($existingAncestor !== $destination && !file_exists($existingAncestor)) {
+				$parent = dirname($existingAncestor);
+				if ($parent === $existingAncestor) break; // reached filesystem root
+				$existingAncestor = $parent;
+			}
+
+			$realAncestor = realpath($existingAncestor);
+			if ($realAncestor === false || ($realAncestor !== $destination && strpos($realAncestor, $destination . JetBackup::SEP) !== 0)) {
+
+				$this->_logController->logError("Skipping archive member with unsafe path: '$filename'");
+				if ($header->getTypeFlag() != Header::DIRTYPE && $size > 0) $this->_read($size); // drain data block to keep stream alignment
+				continue;
+
+			}
 
 			if(!file_exists($directory) && !@mkdir($directory, 0777, true)) {
 				$this->_logController->logError("Failed creating directory '$directory'");

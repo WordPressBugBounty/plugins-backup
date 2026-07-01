@@ -3,7 +3,7 @@
  * Plugin Name:       JetBackup
  * Plugin URI:        https://www.jetbackup.com/jetbackup-for-wordpress
  * Description:       JetBackup is the most complete WordPress site backup and restore plugin. We offer the easiest way to backup, restore or migrate your site. You can backup your files, database or both.
- * Version:           3.1.21.3
+ * Version:           3.1.22.3
  * Author:            JetBackup
  * Author URI:        https://www.jetbackup.com/jetbackup-for-wordpress
  * License:           GPLv2 or later
@@ -25,6 +25,10 @@ register_deactivation_hook(__FILE__, ['\JetBackup\Wordpress\Installer', 'deactiv
 // Main init
 add_action('init', ['\JetBackup\Wordpress\Init', 'actionInit'], 1);
 add_action('init', ['\JetBackup\Wordpress\Init', 'actionCLI'], 1);
+
+// WordPress Abilities API (WP 6.9+)
+add_action('wp_abilities_api_categories_init', ['\JetBackup\Wordpress\Abilities', 'registerCategories']);
+add_action('wp_abilities_api_init', ['\JetBackup\Wordpress\Abilities', 'register']);
 
 add_action('upgrader_process_complete', ['\JetBackup\Wordpress\Installer', 'update'], 10, 2);
 add_filter('admin_body_class', ['\JetBackup\Wordpress\Init', 'filterAdminBodyClass']);

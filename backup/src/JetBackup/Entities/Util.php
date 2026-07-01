@@ -385,8 +385,19 @@ XML;
      * @param string $path  The path to be converted.
      * @return string The converted Windows-style path.
      */
-    public static function normalizePath(string $path): string
-    {
+    public static function normalizePath(string $path): string  {
         return str_replace('\\', JetBackup::SEP, $path);
+    }
+
+    public static function resolveRelativePath(string $path): string {
+        $path = self::normalizePath($path);
+        $isAbsolute = strpos($path, JetBackup::SEP) === 0;
+        $resolved = [];
+        foreach (explode(JetBackup::SEP, $path) as $segment) {
+            if ($segment === '' || $segment === '.') continue;
+            if ($segment === '..') { array_pop($resolved); continue; }
+            $resolved[] = $segment;
+        }
+        return ($isAbsolute ? JetBackup::SEP : '') . implode(JetBackup::SEP, $resolved);
     }
 }

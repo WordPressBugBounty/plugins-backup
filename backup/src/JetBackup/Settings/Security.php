@@ -20,6 +20,8 @@ class Security extends Settings {
 
 	const MFA_ENABLED = 'MFA_ENABLED';
 	const MFA_ALLOW_CLI = 'MFA_ALLOW_CLI';
+	const ABILITIES_ENABLED = 'ABILITIES_ENABLED';
+	const MFA_ALLOW_ABILITIES = 'MFA_ALLOW_ABILITIES';
 	const DAILY_CHECKSUM_CHECK = 'DAILY_CHECKSUM_CHECK';
 	const DATADIR_SECURED = 'SECURITY_DATADIR_SECURED';
 	const DATADIR_RECOMMENDED = 'SECURITY_DATADIR_RECOMMENDED';
@@ -37,6 +39,8 @@ class Security extends Settings {
 	 */
 	public function isMFAEnabled():bool { return (bool) $this->get(self::MFA_ENABLED, false); }
 	public function isMFAAllowCLI():bool { return (bool) $this->get(self::MFA_ALLOW_CLI, false); }
+	public function isAbilitiesEnabled():bool { return (bool) $this->get(self::ABILITIES_ENABLED, false); }
+	public function isMFAAllowAbilities():bool { return (bool) $this->get(self::MFA_ALLOW_ABILITIES, false); }
 
 	/**
 	 * @param bool $value
@@ -45,6 +49,8 @@ class Security extends Settings {
 	 */
 	public function setMFAEnabled(bool $value):void { $this->set(self::MFA_ENABLED,$value); }
 	public function setMFAAllowCLI(bool $value):void { $this->set(self::MFA_ALLOW_CLI,$value); }
+	public function setAbilitiesEnabled(bool $value):void { $this->set(self::ABILITIES_ENABLED,$value); }
+	public function setMFAAllowAbilities(bool $value):void { $this->set(self::MFA_ALLOW_ABILITIES,$value); }
 
 	/**
 	 * @return bool
@@ -67,6 +73,8 @@ class Security extends Settings {
 			self::DATADIR_RECOMMENDED           => System::getRecommendSecurePath(),
 			self::MFA_ENABLED                   => $this->isMFAEnabled() ? 1 : 0,
 			self::MFA_ALLOW_CLI                 => $this->isMFAAllowCLI() ? 1 : 0,
+			self::ABILITIES_ENABLED             => $this->isAbilitiesEnabled() ? 1 : 0,
+			self::MFA_ALLOW_ABILITIES           => $this->isMFAAllowAbilities() ? 1 : 0,
 			Config::ALTERNATE_DATA_FOLDER       => Factory::getConfig()->getAlternateDataFolder(),
 			self::DAILY_CHECKSUM_CHECK          => $this->isValidateChecksumsEnabled() ? 1 : 0,
 		];
@@ -79,6 +87,8 @@ class Security extends Settings {
 		return [
 			'MFA Enabled'                       => $this->isMFAEnabled() ? "Yes" : "No",
 			'MFA Allow CLI'                     => $this->isMFAAllowCLI() ? "Yes" : "No",
+			'Abilities API Enabled'             => $this->isAbilitiesEnabled() ? "Yes" : "No",
+			'MFA Allow Abilities API'           => $this->isMFAAllowAbilities() ? "Yes" : "No",
 			'Alternate Data Directory'          => Factory::getConfig()->getAlternateDataFolder(),
 			'Validate System Files Checksums'   => $this->isValidateChecksumsEnabled() ? "Yes" : "No",
 		];

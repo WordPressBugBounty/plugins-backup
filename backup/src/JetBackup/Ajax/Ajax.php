@@ -92,7 +92,8 @@ class Ajax extends ArrayData {
 
 		if (Wordpress::isDebugModeEnabled()) {
 			error_reporting(E_ALL);
-			ini_set('display_errors', 1);
+			ini_set('log_errors', 1);
+			ini_set('display_errors', 0);
 		}
 
 		$data = $this->getData();
@@ -171,6 +172,8 @@ class Ajax extends ArrayData {
 				'system' => ['version' => JetBackup::VERSION],
 			]);
 		}
+
+		while (ob_get_level() > 0 && @ob_end_clean());
 		die($json);
 	}
 

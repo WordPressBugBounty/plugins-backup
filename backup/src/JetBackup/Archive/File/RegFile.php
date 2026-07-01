@@ -22,9 +22,7 @@ class RegFile extends File {
 	public function __construct(string $filename, string $mode) {
 
 		parent::__construct($filename, $mode);
-
-		if (!($this->_fd = fopen($filename, $mode)))
-			throw new ArchiveException('Could not open file: '.$filename);
+		if (!($this->_fd = @fopen($filename, $mode))) throw new ArchiveException('Could not open file: '.$filename);
 	}
 	
 	public function truncate($offset): bool {

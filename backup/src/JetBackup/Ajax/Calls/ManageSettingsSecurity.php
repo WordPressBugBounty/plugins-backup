@@ -34,6 +34,18 @@ class ManageSettingsSecurity extends aAjax {
 	 * @return bool
 	 * @throws AjaxException
 	 */
+	private function _getAbilitiesEnabled(): bool { return $this->getUserInput(Security::ABILITIES_ENABLED, false, UserInput::BOOL); }
+
+	/**
+	 * @return bool
+	 * @throws AjaxException
+	 */
+	private function _getMFAAllowAbilities(): bool { return $this->getUserInput(Security::MFA_ALLOW_ABILITIES, false, UserInput::BOOL); }
+
+	/**
+	 * @return bool
+	 * @throws AjaxException
+	 */
 	private function _getValidateChecksums(): bool { return $this->getUserInput(Security::DAILY_CHECKSUM_CHECK, false, UserInput::BOOL); }
 
 	/**
@@ -56,6 +68,8 @@ class ManageSettingsSecurity extends aAjax {
 
 		if($this->isset(Security::MFA_ENABLED)) $settings->setMFAEnabled($this->_getMFAEnabled());
 		if($this->isset(Security::MFA_ALLOW_CLI)) $settings->setMFAAllowCLI($this->_getMFAAllowCLI());
+		if($this->isset(Security::ABILITIES_ENABLED)) $settings->setAbilitiesEnabled($this->_getAbilitiesEnabled());
+		if($this->isset(Security::MFA_ALLOW_ABILITIES)) $settings->setMFAAllowAbilities($this->_getMFAAllowAbilities());
 		if($this->isset(Security::DAILY_CHECKSUM_CHECK)) $settings->setValidateChecksumsEnabled($this->_getValidateChecksums());
 
 		$settings->validateFields();

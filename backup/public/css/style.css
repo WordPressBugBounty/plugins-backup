@@ -760,6 +760,19 @@ input.verify2FA_input {
 .schedule_wrapper .form-check-input {
     margin-top: 0 !important;
 }
+
+#envCompatibilityCheck.form-check-input {
+    appearance: auto;
+    -webkit-appearance: auto;
+    width: 16px;
+    height: 16px;
+    top: 0;
+    background-color: #fff;
+    accent-color: #FF6C2C;
+    cursor: pointer;
+}
+#envCompatibilityCheck.form-check-input::before { content: none !important; }
+
 /* The switch  */
 .switch-main .switch {
     position: relative;

@@ -162,19 +162,6 @@ class FileInfo extends SetterGetter {
      * @return string
      */
     protected function cleanPath(string $path):string {
-        $path = Util::normalizePath($path);
-        $path = explode(JetBackup::SEP , $path);
-        $newpath = array();
-        foreach ($path as $p) {
-            if ($p === '' || $p === '.') {
-                continue;
-            }
-            if ($p === '..') {
-                array_pop($newpath);
-                continue;
-            }
-	        $newpath[] = $p;
-        }
-        return trim(implode(JetBackup::SEP, $newpath), JetBackup::SEP);
+        return trim(Util::resolveRelativePath($path), JetBackup::SEP);
     }
 }

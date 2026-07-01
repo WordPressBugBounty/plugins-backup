@@ -222,7 +222,7 @@ class QueueItem extends Engine {
 		}
 		if(!file_exists($this->getWorkspace())) throw new TaskException('Queue item working folder not set yet');
 		$this->updateStatus(Queue::STATUS_ABORTED);
-		touch($this->getAbortFileLocation());
+		@touch($this->getAbortFileLocation());
 	}
 
 	/**
