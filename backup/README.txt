@@ -7,7 +7,7 @@ Tags: backup, restore, remote backup
 Requires at least: 6.0
 Tested up to: 7.0.0
 Requires PHP: 7.4
-Stable tag: 3.1.22.3
+Stable tag: 3.1.22.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,7 +94,7 @@ Yes! JetBackup creates an exact snapshot of your website. When restored, it main
 
 == Changelog ==
 
-= 3.1.22.3 =
+= 3.1.22.4 =
 * Added support for WordPress Abilities API integration (WordPress 6.9+).
 * Tightened archive extraction security.
 * Fixed some edge cases where failed AJAX requests were not displayed.

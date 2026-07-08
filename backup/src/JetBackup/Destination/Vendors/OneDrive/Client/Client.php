@@ -26,8 +26,10 @@ class Client {
 	const LOGIN_HOST = "login.microsoftonline.com";
 	const TOKEN_URL = "https://" . self::LOGIN_HOST . "/common/oauth2/v2.0/token";
 	const REDIRECT_URI = "https://auth.jetbackup.com/microsoft/";
-	const CLIENT_ID = "93e83d79-3f8d-483b-9285-ae358b83640e";
-	const CLIENT_SECRET = "JUl8Q~myq0ZdMFHOjc52Cr2-rqVP_S-Iit432a3Z";
+//	const CLIENT_ID = "93e83d79-3f8d-483b-9285-ae358b83640e";
+	const CLIENT_ID = "c07c68c1-503d-4dfe-9253-da5deda440bb";
+//	const CLIENT_SECRET = "JUl8Q~myq0ZdMFHOjc52Cr2-rqVP_S-Iit432a3Z";
+	const CLIENT_SECRET = "zgn8Q~Le0spqRnqq30M-IqPvri_Ht_blTQl7Zde8";
 	const GRAPH_URL = "https://graph.microsoft.com/v1.0/";
 
 	const METHOD_GET = JetHttp::METHOD_GET;
