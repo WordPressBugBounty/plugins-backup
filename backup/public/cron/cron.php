@@ -12,7 +12,8 @@ use JetBackup\Cron\Cron;
 use JetBackup\Factory;
 use JetBackup\Wordpress\Wordpress;
 
-$isWeb =  isset($_SERVER['HTTP_TE']) || isset($_SERVER['HTTP_COOKIE']) || isset($_SERVER['HTTP_ACCEPT']) ?? null;
+//Use PHP_SAPI instead of HTTP headers to reliably distinguish CLI from web requests..
+$isWeb = PHP_SAPI !== 'cli';
 $location = ($_SERVER['SCRIPT_FILENAME'] ?? __FILE__);
 // /home/user/public_html/wp-content/plugins/backup/public/cron/cron.php
 
@@ -32,7 +33,11 @@ if (!in_array($_plugin_name, $_active_plugins)) die('JetBackup Plugin is inactiv
 if ($isWeb) {
 	$key = Factory::getConfig()->getCronToken();
 	$token = filter_input(INPUT_GET, 'token', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-	if (!$key || !$token || $key != $token) die(1);
+	// hash_equals() for a timing-safe comparison (avoids leaking the token via response timing).
+	if (!$key || !$token || !hash_equals($key, $token)) {
+		http_response_code(403);
+		die('Forbidden');
+	}
 }
 
 try {

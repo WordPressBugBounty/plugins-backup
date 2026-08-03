@@ -1,9 +1,14 @@
 <div ng-controller="JetStorage">
 
     <div class="form-group row" ng-show="saveData.simpleMode && !saveData._id">
-        <label class="col-sm-3 col-form-label jb-label">{{ lang.t("Quick Access Code") }}</label>
+        <label for="jetstorage_access_code" class="col-sm-3 col-form-label jb-label">{{ lang.t("Quick Access Code") }}</label>
         <div class="col-sm-7">
-            <input type="text" class="form-control" ng-model="saveData.options.quick_access_code">
+            <input id="jetstorage_access_code" class="form-control col-md-7 col-xs-12 jb-input jb-grey-0" type="text" ng-model="saveData.options.quick_access_code" />
+            <div class="d-flex justify-content-start mt-2">
+            <span class="input-group-btn">
+                <button id="jetstorage_request_access_code" type="button" class="btn btn-primary ng-binding jb-background-orange border-0" ng-click="openJetBackupStoragePopup()">{{ lang.t("Get Quick Access Code") }}</button>
+            </span>
+            </div>
             <p class="pd-3">{{ lang.t("Paste your Quick Access Code here") }}</p>
         </div>
     </div>

@@ -527,8 +527,12 @@ class OneDrive extends DestinationWrapper {
 	 */
 	private function _fetchAccessToken():void {
 
-		// if now the access token isn't expired that means that other thread already fetched new access token, exit as there is nothing to do
-		if($this->getAccessTokenExpiry() > time()) return;
+		// A freshly provided authorization code must always be spent - even when the current
+		// access token is still valid - otherwise re-authorizing (e.g. switching to another
+		// Microsoft account) is silently ignored while the old token keeps being used. So we
+		// only skip the fetch when there is NO pending authorization code AND the current
+		// access token isn't expired (i.e. another thread already refreshed it).
+		if(!$this->getAuthorizationCode() && $this->getAccessTokenExpiry() > time()) return;
 
 		$api = new Client();
 		$api->setHTTPVersion($this->getHTTPVersion());

@@ -5,9 +5,9 @@ Author: JetBackup
 Donate link: https://www.jetbackup.com/jetbackup-for-wordpress
 Tags: backup, restore, remote backup
 Requires at least: 6.0
-Tested up to: 7.0.0
+Tested up to: 7.0.2
 Requires PHP: 7.4
-Stable tag: 3.1.22.4
+Stable tag: 3.1.23.3
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -94,7 +94,13 @@ Yes! JetBackup creates an exact snapshot of your website. When restored, it main
 
 == Changelog ==
 
-= 3.1.22.4 =
+= 3.1.23.3 =
+* Added indication and quick actions once a backup file upload fails.
+* Add option to generate new authorization code when editing existing OneDrive destination.
+* Add missing Quick Access Code button while creating JetBackup Storage.
+* Hardened the public cron endpoint to enforce the cron token on all HTTP invocations.
+
+= 3.1.22.3 =
 * Added support for WordPress Abilities API integration (WordPress 6.9+).
 * Tightened archive extraction security.
 * Fixed some edge cases where failed AJAX requests were not displayed.
