@@ -105,15 +105,20 @@ class Init {
 			BackupJob::getDefaultJob();
 			BackupJob::getDefaultConfigJob();
 
-			self::_download();
-
-			//Only register UI/AJAX/heartbeat after we know init succeeded.
+			// On multisite, only a Super Admin on the main site may proceed. This gate MUST run
+			// BEFORE _download() reads request input; otherwise a per-site administrator (who has
+			// manage_options) could stream the whole-network backup or job logs via the
+			// download_id / queue_item_id request parameters.
 			$hookNetworkMenu = false;
 			if (Helper::isMultisite()) {
+
 				if (!Helper::isMainSite() || !Helper::isNetworkAdminUser()) return;
 				$hookNetworkMenu = Helper::isNetworkAdminInterface();
 			}
 
+			self::_download();
+
+			//Only register UI/AJAX/heartbeat after we know init succeeded.
 			if ($hookNetworkMenu) add_action('network_admin_menu', ['\JetBackup\Wordpress\UI', 'main']);
 
 			self::$_initialized = true;

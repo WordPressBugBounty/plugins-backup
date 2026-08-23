@@ -16,6 +16,7 @@ class QueueItemRestore extends aQueueItem {
 	const EXCLUDE = 'exclude';
 	const INCLUDE = 'include';
 	const ADMIN_USER = 'admin_user';
+	const INITIATOR_USER_ID = 'initiator_user_id';
 	const FILE_MANAGER = 'file_manager';
 
 	// General restore
@@ -64,6 +65,10 @@ class QueueItemRestore extends aQueueItem {
 	public function setAdminUser(string $user): void { $this->set(self::ADMIN_USER, $user); }
 	public function getAdminUser(): string { return $this->get(self::ADMIN_USER); }
 
+	// WP user id of whoever queued the restore (captured at queue time; 0 if unknown, e.g. CLI).
+	public function setInitiatorUserId(int $id): void { $this->set(self::INITIATOR_USER_ID, $id); }
+	public function getInitiatorUserId(): int { return (int) $this->get(self::INITIATOR_USER_ID, 0); }
+
 	public function setExcludedDatabases(array $exclude): void { $this->set(self::EXCLUDE_DATABASE, $exclude); }
 	public function getExcludedDatabases(): array { return $this->get(self::EXCLUDE_DATABASE, []); }
 
@@ -88,6 +93,7 @@ class QueueItemRestore extends aQueueItem {
 			self::EXCLUDE_DATABASE  => $this->getExcludedDatabases(),
 			self::INCLUDE_DATABASE  => $this->getIncludedDatabases(),
 			self::FILE_MANAGER      => $this->getFileManager(),
+			self::INITIATOR_USER_ID => $this->getInitiatorUserId(),
 		];
 	}
 }

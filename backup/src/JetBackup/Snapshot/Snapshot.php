@@ -34,6 +34,7 @@ use JetBackup\ResumableTask\ResumableTask;
 use JetBackup\Schedule\Schedule;
 use JetBackup\UserInput\UserInput;
 use JetBackup\Wordpress\Wordpress;
+use JetBackup\Wordpress\Helper;
 use SleekDB\Exceptions\InvalidArgumentException;
 use SleekDB\QueryBuilder;
 
@@ -369,7 +370,10 @@ class Snapshot extends Engine {
 		$restore->setExcludedDatabases($exclude_db);
 		$restore->setIncludedDatabases($include_db);
 		$restore->setFileManager($filemanager);
-		
+		// Record who initiated the restore so the worker can rescue exactly this admin
+		// (and carry over their real role) instead of guessing by session recency. 0 = unknown (e.g. CLI).
+		$restore->setInitiatorUserId((int) (Helper::getUserId() ?: 0));
+
 		$queue_item = QueueItem::prepare();
 		$queue_item->setType(Queue::QUEUE_TYPE_RESTORE);
 		$queue_item->setItemData($restore);

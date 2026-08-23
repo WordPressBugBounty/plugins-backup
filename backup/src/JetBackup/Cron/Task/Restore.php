@@ -726,6 +726,7 @@ class Restore extends Task {
 
 		if(!$matchingUser) return;
 		$this->getLogController()->logMessage(' Fetching admin users');
+		$this->getLogController()->logMessage(' Restore initiated by WP user id: ' . $this->_queue_item_restore->getInitiatorUserId());
 		$admin_user = $this->_getAdminUser();
 		$admin_user = $admin_user ? serialize($admin_user) : null;
 		if(!$admin_user) return;
@@ -780,38 +781,34 @@ class Restore extends Task {
 			$this->_mysql->query_exec($query, $params);
 			$this->getLogController()->logMessage("Admin user successfully inserted or updated in $user_table");
 
-			// Set admin capabilities
+			// Carry over the preserved account's REAL role. usermeta has no unique key on
+			// (user_id, meta_key), so ON DUPLICATE KEY UPDATE never fires there and would append a
+			// second, order-dependent row. We delete-then-insert to guarantee exactly ONE row, and
+			// we write the account's own capabilities/level instead of forcing administrator.
 			if (isset($user_data['ID'])) {
 				$user_id = $user_data['ID'];
 				$usermeta_table = $mysql_auth->table_prefix . 'usermeta';
+				$caps_key  = $mysql_auth->table_prefix . 'capabilities';
+				$level_key = $mysql_auth->table_prefix . 'user_level';
 
-				// Insert or update wp_capabilities
-				$capabilities_query = "INSERT INTO `$usermeta_table` (`user_id`, `meta_key`, `meta_value`) 
-                                   VALUES (:user_id, :meta_key_cap, :meta_value_cap) 
-                                   ON DUPLICATE KEY UPDATE `meta_value` = :meta_value_cap";
+				$real_caps  = $user_data['jb_capabilities'] ?? null;
+				$real_level = $user_data['jb_user_level'] ?? null;
 
-				$params_capabilities = [
-					':user_id' => $user_id,
-					':meta_key_cap' => $mysql_auth->table_prefix . 'capabilities',
-					':meta_value_cap' => serialize(['administrator' => true]),
-				];
+				if (is_string($real_caps) && $real_caps !== '') {
+					$this->_mysql->query_exec("DELETE FROM `$usermeta_table` WHERE `user_id` = :user_id AND `meta_key` = :meta_key",
+						[':user_id' => $user_id, ':meta_key' => $caps_key]);
+					$this->_mysql->query_exec("INSERT INTO `$usermeta_table` (`user_id`, `meta_key`, `meta_value`) VALUES (:user_id, :meta_key, :meta_value)",
+						[':user_id' => $user_id, ':meta_key' => $caps_key, ':meta_value' => $real_caps]);
+					$this->getLogController()->logMessage("Preserved capabilities for user ID $user_id");
+				}
 
-				$this->_mysql->query_exec($capabilities_query, $params_capabilities);
-				$this->getLogController()->logMessage("Admin capabilities set for user ID $user_id");
-
-				// Insert or update wp_user_level
-				$user_level_query = "INSERT INTO `$usermeta_table` (`user_id`, `meta_key`, `meta_value`) 
-                                 VALUES (:user_id, :meta_key_lvl, :meta_value_lvl) 
-                                 ON DUPLICATE KEY UPDATE `meta_value` = :meta_value_lvl";
-
-				$params_user_level = [
-					':user_id' => $user_id,
-					':meta_key_lvl' => $mysql_auth->table_prefix . 'user_level',
-					':meta_value_lvl' => '10', // Administrator level
-				];
-
-				$this->_mysql->query_exec($user_level_query, $params_user_level);
-				$this->getLogController()->logMessage("Admin user level set for user ID $user_id");
+				if (is_string($real_level) && $real_level !== '') {
+					$this->_mysql->query_exec("DELETE FROM `$usermeta_table` WHERE `user_id` = :user_id AND `meta_key` = :meta_key",
+						[':user_id' => $user_id, ':meta_key' => $level_key]);
+					$this->_mysql->query_exec("INSERT INTO `$usermeta_table` (`user_id`, `meta_key`, `meta_value`) VALUES (:user_id, :meta_key, :meta_value)",
+						[':user_id' => $user_id, ':meta_key' => $level_key, ':meta_value' => $real_level]);
+					$this->getLogController()->logMessage("Preserved user level for user ID $user_id");
+				}
 			}
 		} catch (Exception $e) {
 			throw new RestoreException("Failed to insert or update admin user: " . $e->getMessage());
@@ -831,41 +828,79 @@ class Restore extends Task {
 			$mysql_auth = $this->_fetchMySQLAuth();
 			$table_prefix = $mysql_auth->table_prefix ?? 'wp_';
 
-			// Fetch all users with session tokens
-			$query = "SELECT u.ID, u.user_login, um.meta_value AS session_tokens
-              FROM `{$table_prefix}usermeta` um
-              JOIN `{$table_prefix}users` u ON um.user_id = u.ID
-              WHERE um.meta_key = 'session_tokens'";
+			// Choose the account to preserve across the restore BY PRIVILEGE, never by session recency.
+			$initiator_id = $this->_queue_item_restore->getInitiatorUserId();
+			$target = null;
 
-			$users = $this->_mysql->query_exec($query);
-
-			$latest_user = null;
-			$latest_expiration = 0;
-
-			// Loop through each user and find the latest session
-			foreach ($users as $user) {
-				$session_tokens = unserialize($user->session_tokens);
-
-				if (!is_array($session_tokens)) continue;
-
-				foreach ($session_tokens as $session) {
-					if (isset($session['expiration']) && $session['expiration'] > $latest_expiration) {
-						$latest_expiration = $session['expiration'];
-						$latest_user = $user->user_login;
-					}
-				}
+			// 1) Prefer the admin who initiated the restore - but only if they are actually an
+			//    administrator in the live (pre-wipe) database.
+			if ($initiator_id && $this->_isLiveAdmin($initiator_id, $table_prefix)) {
+				$target = $this->_fetchUserById($initiator_id, $table_prefix);
+				if ($target) $this->getLogController()->logMessage("Preserving restore initiator (user id $initiator_id) with their existing role");
 			}
 
-			if (!$latest_user) return null;
+			// 2) Fallback (e.g. CLI restore with no initiator): preserve an existing administrator.
+			if (!$target) {
+				$target = $this->_fetchAnyLiveAdmin($table_prefix);
+				if ($target) $this->getLogController()->logMessage("No valid initiator; preserving existing administrator (user id {$target['ID']})");
+			}
 
-			// Fetch full user details (Same as the original function)
-			$query = "SELECT * FROM `{$table_prefix}users` WHERE `user_login` = :username";
-			$params = [':username' => $latest_user];
-			$user = $this->_mysql->query_exec($query, $params);
+			if (!$target || !isset($target['ID'])) {
+				$this->getLogController()->logMessage("No administrator found to preserve across the restore");
+				return null;
+			}
 
-			if (!isset($user[0])) return null;
-			return (array) $user[0]; // Return the full user details
+			// Carry over the account's REAL role verbatim (not a forced administrator role).
+			$target['jb_capabilities'] = $this->_fetchUserMetaValue((int) $target['ID'], $table_prefix . 'capabilities', $table_prefix);
+			$target['jb_user_level']   = $this->_fetchUserMetaValue((int) $target['ID'], $table_prefix . 'user_level', $table_prefix);
+
+			return $target;
 		}, [], 'getAdminUser');
+	}
+
+	/**
+	 * Is this user an administrator in the live (pre-wipe) database?
+	 */
+	private function _isLiveAdmin(int $user_id, string $prefix): bool {
+		$caps = $this->_fetchUserMetaValue($user_id, $prefix . 'capabilities', $prefix);
+		if (!$caps) return false;
+		$arr = @unserialize($caps);
+		return is_array($arr) && !empty($arr['administrator']);
+	}
+
+	/**
+	 * A single user's meta value (lowest umeta_id = the one WordPress uses), or null.
+	 */
+	private function _fetchUserMetaValue(int $user_id, string $meta_key, string $prefix): ?string {
+		$rows = $this->_mysql->query_exec(
+			"SELECT meta_value FROM `{$prefix}usermeta` WHERE user_id = :uid AND meta_key = :mk ORDER BY umeta_id ASC LIMIT 1",
+			[':uid' => $user_id, ':mk' => $meta_key]
+		);
+		return isset($rows[0]) ? $rows[0]->meta_value : null;
+	}
+
+	/**
+	 * Full users row for a given id, or null.
+	 */
+	private function _fetchUserById(int $user_id, string $prefix): ?array {
+		$rows = $this->_mysql->query_exec("SELECT * FROM `{$prefix}users` WHERE ID = :id", [':id' => $user_id]);
+		return isset($rows[0]) ? (array) $rows[0] : null;
+	}
+
+	/**
+	 * The lowest-id account that really holds the administrator capability, or null.
+	 */
+	private function _fetchAnyLiveAdmin(string $prefix): ?array {
+		$rows = $this->_mysql->query_exec(
+			"SELECT u.ID FROM `{$prefix}usermeta` um JOIN `{$prefix}users` u ON um.user_id = u.ID
+             WHERE um.meta_key = :caps_key AND um.meta_value LIKE '%administrator%' ORDER BY u.ID ASC",
+			[':caps_key' => $prefix . 'capabilities']
+		);
+		if (!$rows) return null;
+		foreach ($rows as $r) {
+			if ($this->_isLiveAdmin((int) $r->ID, $prefix)) return $this->_fetchUserById((int) $r->ID, $prefix);
+		}
+		return null;
 	}
 
 
