@@ -182,9 +182,12 @@ class Mysqldump extends MysqldumpAlias {
 	 */
 	private function _checkResume($buffer) {
 
-		$problematicSetPattern = '/SET\s+\w+\s*=\s*@[\w_]+/i';
+		// Only a real SET statement uses the @OLD_/@saved_ session vars that may not survive the
+		// import and need skipping. Check the statement's first word, not the whole text, so a value
+		// like "... SET x=@OLD_FOO ..." inside an INSERT can't make us skip (and lose) that row.
+		$head = SqlStatementParser::effectiveHead($buffer);
 
-		if (preg_match($problematicSetPattern, $buffer)) {
+		if (strncasecmp($head, 'SET', 3) === 0 && preg_match('/^SET\b[\s\S]*=\s*@[\w_]+/i', $head)) {
 			$this->getLogController()->logMessage("Skipping problematic statement: {$buffer}");
 			return null; // Skip this query
 		}
@@ -286,44 +289,34 @@ class Mysqldump extends MysqldumpAlias {
 				$this->getLogController()->logMessage("Starting new import for: {$_table}");
 			}
 
-			$buffer = '';
+			// The parser splits statements while ignoring quotes and comments, so a ';' (or a
+			// CREATE/VIEW/DEFINER= word) inside a quoted value is never read as SQL. It also handles
+			// comment/blank lines, so we don't pre-skip lines by hand anymore.
+			$parser = new SqlStatementParser();
 
 			while (!feof($handle)) {
 				$lineRaw = fgets($handle);
 				if ($lineRaw === false) break;
 
-				$lineTrim = ltrim($lineRaw);
-				if (substr($lineTrim, 0, 2) === '--' || trim($lineRaw) === '') continue;
+				foreach ($parser->feed($lineRaw) as $rawStmt) {
+					$this->_importStatement($rawStmt);
+				}
 
-				$buffer .= $lineRaw;
-
-				if (preg_match('/;\s*$/', rtrim($lineRaw))) {
+				// Save the resume position only when we're between statements, so a resume always
+				// starts on a whole statement.
+				if (!$parser->hasPending()) {
 					try {
-						$stmt = $this->_checkResume($buffer);
-						if ($stmt !== null) {
-							if (stripos($stmt, 'CREATE') !== false && stripos($stmt, 'VIEW') !== false) {
-								$stmt = self::normalizeCreateView($stmt);
-							}
-							$this->query_exec($stmt);
-						}
-
-						try {
-							AtomicWrite::write($_progress_file, (string) ftell($handle), $this->getLogController());
-						} catch (Exception $e) {
-							$this->getLogController()->logError("Failed to update progress file: " . $e->getMessage());
-							// Continue execution despite progress file write failure
-						}
-
-						$buffer = '';
-					} catch (PDOException $e) {
-
-						$this->getLogController()->logMessage("Failed to execute query: {$buffer}");
-						$this->getLogController()->logMessage("Error: " . $e->getMessage());
-						$this->getLogController()->logMessage("SQLSTATE: " . $e->getCode());
-
-						throw new Exception("Failed to execute query: {$buffer}");
+						AtomicWrite::write($_progress_file, (string) ftell($handle), $this->getLogController());
+					} catch (Exception $e) {
+						$this->getLogController()->logError("Failed to update progress file: " . $e->getMessage());
+						// keep going even if the progress file can't be written
 					}
 				}
+			}
+
+			// A last statement with no ';' at the end (some dumps skip it).
+			if (($rawStmt = $parser->flush()) !== null) {
+				$this->_importStatement($rawStmt);
 			}
 
 			fclose($handle);
@@ -345,49 +338,30 @@ class Mysqldump extends MysqldumpAlias {
 		}
 	}
 
-	private static function normalizeCreateView(string $sql): string {
-		if (!preg_match('/\bCREATE\b.*\bVIEW\b/is', $sql)) {
-			return $sql;
+	/**
+	 * Run one statement from the dump: skip the session-restore SETs, fix up a real CREATE VIEW so it
+	 * restores on another server, then run it. A statement counts as a view only when it truly starts
+	 * with CREATE ... VIEW, so an INSERT that just mentions those words runs as-is.
+	 *
+	 * @throws Exception
+	 */
+	private function _importStatement(string $rawStmt): void {
+		try {
+			$stmt = $this->_checkResume($rawStmt);
+			if ($stmt === null) return;
+
+			if (SqlStatementParser::isCreateView($stmt)) {
+				$stmt = SqlStatementParser::normalizeCreateView($stmt);
+			}
+
+			$this->query_exec($stmt);
+		} catch (PDOException $e) {
+			$this->getLogController()->logMessage("Failed to execute query: {$rawStmt}");
+			$this->getLogController()->logMessage("Error: " . $e->getMessage());
+			$this->getLogController()->logMessage("SQLSTATE: " . $e->getCode());
+
+			throw new Exception("Failed to execute query: {$rawStmt}");
 		}
-
-		$parts  = preg_split('/\bAS\b/i', $sql, 2);
-		$header = $parts[0] ?? $sql;
-		$body   = $parts[1] ?? '';
-
-		$header = preg_replace(
-			'/\/\*!\d+\s+DEFINER\s*=\s*[^*]+SQL\s+SECURITY\s+(?:DEFINER|INVOKER)\s*\*\//i',
-			' ',
-			$header
-		);
-
-		$header = preg_replace(
-			'/\bDEFINER\s*=\s*(?:`[^`]+`@`[^`]+`|\'[^\']+\'@\'[^\']+\'|[^ \t\n\r\f\)]+)\s*/i',
-			' ',
-			$header
-		);
-
-		$header = preg_replace('/\bALGORITHM\s*=\s*\w+\s*/i', ' ', $header);
-
-		$header = preg_replace('/\bCREATE\s+(?!OR\s+REPLACE\b)/i', 'CREATE OR REPLACE ', $header, 1);
-
-		if (preg_match('/\bSQL\s+SECURITY\s+(?:DEFINER|INVOKER)\b/i', $header)) {
-			$header = preg_replace('/\bSQL\s+SECURITY\s+(?:DEFINER|INVOKER)\b/i', 'SQL SECURITY INVOKER', $header, 1);
-		} else {
-			$header = preg_replace(
-				'/\b(CREATE\s+(?:OR\s+REPLACE\s+)?)(VIEW\b)/i',
-				'$1SQL SECURITY INVOKER $2',
-				$header,
-				1
-			);
-		}
-
-		$header = preg_replace('/[ \t]+/', ' ', $header);
-		$header = trim($header);
-
-		if ($body === '') {
-			return $header;
-		}
-		return $header . ' AS' . (preg_match('/^\s/', $body) ? '' : ' ') . $body;
 	}
 
 	/**
